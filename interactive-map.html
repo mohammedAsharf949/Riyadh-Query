@@ -1,0 +1,1004 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <title>Calcite Components: Create a mapping app</title>
+    <script
+      src="https://js.arcgis.com/calcite-components/2.10.1/calcite.esm.js"
+      type="module"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://js.arcgis.com/calcite-components/2.10.1/calcite.css"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://js.arcgis.com/4.30/esri/themes/light/main.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css"
+      integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+      crossorigin="anonymous"
+    />
+
+    <style>
+      html,
+      body,
+      #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+      }
+
+      body {
+        display: flex;
+      }
+
+      calcite-loader {
+        align-self: center;
+        justify-self: center;
+      }
+
+      #info-content {
+        padding: 0.75rem;
+      }
+
+      #SearchCard {
+        direction: rtl;
+      }
+
+      calcite-rating {
+        margin-top: 0.25rem;
+      }
+
+      #topbar {
+        background: #fff;
+        padding: 10px;
+      }
+
+      .action-button {
+        font-size: 16px;
+        background-color: transparent;
+        border: 1px solid #d3d3d3;
+        color: #6e6e6e;
+        height: 32px;
+        width: 32px;
+        text-align: center;
+        box-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+      }
+
+      .action-button:hover,
+      .action-button:focus {
+        background: #0079c1;
+        color: #e4e4e4;
+      }
+
+      .active {
+        background: #0079c1;
+        color: #e4e4e4;
+      }
+
+      .SearchButtons {
+        width: 49%;
+      }
+
+      .select {
+        height: 32px;
+        font-family: Avenir Next, Helvetica Neue, helvetica, arial, sans-serif;
+      }
+
+      .esri-popup__main-container {
+        z-index: 1;
+        pointer-events: auto;
+        background-color: #fff;
+        width: 340px;
+        min-height: 48px;
+        max-height: 340px;
+        display: flex;
+        position: relative;
+        overflow: hidden;
+        direction: rtl;
+      }
+
+      .esri-attribution {
+        display: none !important;
+      }
+    </style>
+    <script charset="utf-8">
+      var locationPath = location.pathname.replace(/\/[^\/]+$/, "");
+
+      window.dojoConfig = {
+        packages: [
+          {
+            name: "custom",
+            location: locationPath + "/modules/custom",
+          },
+        ],
+      };
+    </script>
+    <script src="/modules/custom/FeatureLayersDefinition.js"></script>
+    <script src="/modules/custom/Search.js"></script>
+    <script src="https://js.arcgis.com/4.30/"></script>
+    <script charset="utf-8">
+      require([
+        "esri/intl",
+        "custom/FeatureLayersDefinition",
+        "custom/Search",
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/widgets/Bookmarks",
+        "esri/widgets/BasemapGallery",
+        "esri/widgets/LayerList",
+        "esri/widgets/Legend",
+        "esri/widgets/Print",
+        "esri/layers/FeatureLayer",
+        "esri/rest/query",
+        "esri/config",
+        "esri/widgets/Home",
+        "esri/widgets/Compass",
+        "esri/widgets/AreaMeasurement2D",
+        "esri/widgets/DistanceMeasurement2D",
+        "esri/widgets/FeatureTable",
+      ], function (
+        intl,
+        FeatureLayersDefinition,
+        SearchLayers,
+        Map,
+        MapView,
+        Bookmarks,
+        BasemapGallery,
+        LayerList,
+        Legend,
+        Print,
+        FeatureLayer,
+        Query,
+        esriConfig,
+        Home,
+        Compass,
+        AreaMeasurement2D,
+        DistanceMeasurement2D,
+        FeatureTable
+      ) {
+        esriConfig.locale = "ar";
+        intl.setLocale("ar");
+        const map = new Map({});
+
+        map.basemap = {
+          style: {
+            id: "arcgis/imagery",
+            language: "ar", // arabic language basemap
+          },
+        };
+        FeatureLayersDefinition.addLayers(map);
+
+        const view = new MapView({
+          map,
+          container: "viewDiv",
+          padding: {
+            left: 49,
+          },
+          center: [46.709779, 24.692213],
+          zoom: 11,
+          popup: {
+            dockOptions: {
+              buttonEnabled: true, // Enable minimize/maximize button
+              breakpoint: false, // Always dock the popup
+              position: "top-right", // Docked popup position
+            },
+          },
+        });
+
+        var featureTable = new FeatureTable({
+          view: view, // Link the table to the map view
+          // Link the table to the FeatureLayer
+          container: "tableDiv", // Where to display the table
+          // Optional: Configure table fields
+          //fieldConfigs: [
+          //    {
+          //        name: "Field1", // Replace with your field name
+          //        label: "Field 1" // Replace with a user-friendly label
+          //    },
+          //    {
+          //        name: "Field2",
+          //        label: "Field 2"
+          //    }
+          //]
+        });
+        // Override menuOpenFunction to modify the "Zoom to Selection" action
+        //featureTable.menuOpenFunction = (event) => {
+        //    const menuItems = event.items;
+
+        //    // Find the "Zoom to Selection" menu item
+        //    const zoomToSelectionItem = menuItems.find(item => item.label === "Zoom to Selection");
+        //    if (zoomToSelectionItem) {
+        //        // Override its click function
+        //        zoomToSelectionItem.clickFunction = () => {
+        //            const selectedFeatures = featureTable.selectedItems.map(item => item.feature);
+        //            if (selectedFeatures.length) {
+        //                view.goTo({
+        //                    target: selectedFeatures.map(feature => feature.geometry),
+        //                    zoom: 15 // Increase zoom level here
+        //                });
+        //            } else {
+        //                alert("Please select a feature first.");
+        //            }
+        //        };
+        //    }
+        //};
+
+        view.popup.dockEnabled = true;
+
+        let homeWidget = new Home({
+          view: view,
+        });
+        let compassWidget = new Compass({
+          view: view,
+        });
+        // create the measurement widgets and hide them by default
+        const distanceMeasurement2D = new DistanceMeasurement2D({
+          view,
+          visible: false,
+        });
+        const areaMeasurement2D = new AreaMeasurement2D({
+          view,
+          visible: false,
+        });
+        view.ui.add("topbar", "top-left");
+
+        view.ui.add(homeWidget, "top-left");
+        view.ui.move("zoom", "top-left");
+        view.ui.add(compassWidget, "top-left");
+        view.ui.add(SearchCard, "top-right");
+        view.ui.add(tableContainnerDiv, "bottom-left");
+        // event listener for distance measurements
+        document
+          .getElementById("distanceButton")
+          .addEventListener("click", function () {
+            setActiveWidget(null);
+            if (!this.classList.contains("active")) {
+              setActiveWidget("distance");
+            } else {
+              setActiveButton(null);
+            }
+          });
+
+        // event listener for area measurements
+        document
+          .getElementById("areaButton")
+          .addEventListener("click", function () {
+            setActiveWidget(null);
+            if (!this.classList.contains("active")) {
+              setActiveWidget("area");
+            } else {
+              setActiveButton(null);
+            }
+          });
+
+        function setActiveWidget(type) {
+          switch (type) {
+            case "distance":
+              areaMeasurement2D.visible = false;
+              distanceMeasurement2D.visible = true;
+              distanceMeasurement2D.viewModel.start();
+              setActiveButton(document.getElementById("distanceButton"));
+              break;
+            case "area":
+              distanceMeasurement2D.visible = false;
+              areaMeasurement2D.visible = true;
+              areaMeasurement2D.viewModel.start();
+              setActiveButton(document.getElementById("areaButton"));
+              break;
+            case null:
+              areaMeasurement2D.visible = false;
+              distanceMeasurement2D.visible = false;
+              break;
+          }
+        }
+
+        function setActiveButton(selectedButton) {
+          // focus the view to activate keyboard shortcuts for sketching
+          view.focus();
+          let elements = document.getElementsByClassName("active");
+          for (let i = 0; i < elements.length; i++) {
+            elements[i].classList.remove("active");
+          }
+          if (selectedButton) {
+            selectedButton.classList.add("active");
+          }
+        }
+
+        const basemaps = new BasemapGallery({
+          view,
+          container: "basemaps-container",
+        });
+
+        const bookmarks = new Bookmarks({
+          view,
+          container: "bookmarks-container",
+        });
+
+        const layerList = new LayerList({
+          view,
+          dragEnabled: true,
+          visibilityAppearance: "checkbox",
+          container: "layers-container",
+        });
+
+        const legend = new Legend({
+          view,
+          container: "legend-container",
+        });
+
+        const print = new Print({
+          view,
+          container: "print-container",
+        });
+
+        let activeWidget;
+
+        const handleActionBarClick = ({ target }) => {
+          if (target.tagName !== "CALCITE-ACTION") {
+            return;
+          }
+
+          if (activeWidget) {
+            document.querySelector(
+              `[data-action-id=${activeWidget}]`
+            ).active = false;
+            document.querySelector(
+              `[data-panel-id=${activeWidget}]`
+            ).hidden = true;
+          }
+
+          const nextWidget = target.dataset.actionId;
+          if (nextWidget !== activeWidget) {
+            document.querySelector(
+              `[data-action-id=${nextWidget}]`
+            ).active = true;
+            document.querySelector(
+              `[data-panel-id=${nextWidget}]`
+            ).hidden = false;
+            activeWidget = nextWidget;
+          } else {
+            activeWidget = null;
+          }
+        };
+
+        document
+          .querySelector("calcite-action-bar")
+          .addEventListener("click", handleActionBarClick);
+
+        let actionBarExpanded = false;
+
+        document.addEventListener("calciteActionBarToggle", (event) => {
+          actionBarExpanded = !actionBarExpanded;
+          view.padding = {
+            left: actionBarExpanded ? 150 : 49,
+          };
+        });
+
+        document.querySelector("calcite-shell").hidden = false;
+        document.querySelector("calcite-loader").hidden = true;
+
+        let LayerSelect = document.getElementById("LayerSelect");
+        var CurrentLayer = null;
+        LayerSelect.addEventListener("change", (e) => {
+          //   map.removeAll();
+          disableAllLayers();
+          disableAllPanels();
+
+          switch (LayerSelect.value) {
+            case "0":
+              map.layers.getItemAt(0).visible = true;
+              CurrentLayer = map.layers.getItemAt(0);
+              document.getElementById("wallspanel").style.display = "block";
+
+              //     map.add(WeelsFL);
+
+              break;
+            case "1":
+              map.layers.getItemAt(1).visible = true;
+              CurrentLayer = map.layers.getItemAt(1);
+              document.getElementById("mosquespanel").style.display = "block";
+              // map.add(MosqeFL);
+              break;
+            case "2":
+              map.layers.getItemAt(2).visible = true;
+              CurrentLayer = map.layers.getItemAt(2);
+              document.getElementById("gardenspanel").style.display = "block";
+              //      map.add(GardernsFL);
+              break;
+            case "3":
+              map.layers.getItemAt(1).visible = true;
+              CurrentLayer = map.layers.getItemAt(1);
+              document.getElementById("exutiveprojectspanel").style.display =
+                "block";
+              //  map.add(GardensProjectsFL);
+
+              break;
+            case "4":
+              map.layers.getItemAt(4).visible = true;
+              CurrentLayer = map.layers.getItemAt(4);
+              document.getElementById("govpanel").style.display = "block";
+              // map.add(GovornanceFL);
+              break;
+            case "5":
+              map.layers.getItemAt(5).visible = true;
+              CurrentLayer = map.layers.getItemAt(5);
+              document.getElementById("Envirpanel").style.display = "block";
+
+              //map.add(EnvironentalFL);
+              break;
+
+            case "7":
+              map.layers.getItemAt(2).visible = true;
+              CurrentLayer = map.layers.getItemAt(2);
+              document.getElementById("CameraPanel").style.display = "block";
+              //  map.add(GardenssurfaceProjectsFL);
+              break;
+            case "8":
+              map.layers.getItemAt(8).visible = true;
+              CurrentLayer = map.layers.getItemAt(8);
+              document.getElementById("CofeePanel").style.display = "block";
+
+              //  map.add(GardenssurfaceProjectsFL);
+              break;
+            case "9":
+              map.layers.getItemAt(9).visible = true;
+              CurrentLayer = map.layers.getItemAt(9);
+
+              //  map.add(GardenssurfaceProjectsFL);
+              break;
+            case "10":
+              map.layers.getItemAt(10).visible = true;
+              CurrentLayer = map.layers.getItemAt(10);
+              //  map.add(GardenssurfaceProjectsFL);
+              break;
+          }
+
+          homeWidget.go();
+        });
+
+        function disableAllLayers() {
+          map.layers.forEach((layer) => {
+            layer.visible = false;
+          });
+        }
+        function disableAllPanels() {
+          document.getElementById("wallspanel").style.display = "none";
+          document.getElementById("mosquespanel").style.display = "none";
+          document.getElementById("gardenspanel").style.display = "none";
+          document.getElementById("exutiveprojectspanel").style.display =
+            "none";
+          document.getElementById("exutiveprojectspanel").style.display =
+            "none";
+          document.getElementById("govpanel").style.display = "none";
+          document.getElementById("Envirpanel").style.display = "none";
+          document.getElementById("CameraPanel").style.display = "none";
+        }
+        var btn = document.getElementById("SearchButton");
+        btn.addEventListener("click", () => {
+          let LayerSelect = document.getElementById("LayerSelect").value;
+          let MuniSelect = document.getElementById("MuniSelect").value;
+          switch (LayerSelect) {
+            case "0":
+              SearchLayers.wallSearch(CurrentLayer, MuniSelect);
+
+              break;
+            case "1":
+              let mosques_Status_select = document.getElementById(
+                "mosques_Status_select"
+              ).value;
+
+              SearchLayers.MousqesSearch(
+                CurrentLayer,
+                MuniSelect,
+                mosques_Status_select
+              );
+
+              break;
+            case "2":
+              // let GardenType_select =
+              //   document.getElementById("gardenTypeSelect").value;
+
+              SearchLayers.GrdensSearch(
+                CurrentLayer,
+                MuniSelect
+                // GardenType_select
+              );
+
+              break;
+            case "3":
+              SearchLayers.GrdensProjectsSearch(CurrentLayer, MuniSelect);
+
+              break;
+            case "4":
+              SearchLayers.GovermentSearch(CurrentLayer, MuniSelect);
+
+              break;
+            case "5":
+              let EnvirStatuselect =
+                document.getElementById("EnvirStatuselect").value;
+
+              let ActualActivityselect = document.getElementById(
+                "ActualActivityselect"
+              ).value;
+
+              let EnvirDescelect =
+                document.getElementById("EnvirDescelect").value;
+
+              let Natunalityselect =
+                document.getElementById("Natunalityselect").value;
+
+              SearchLayers.EnvironmentalSearch(
+                CurrentLayer,
+                MuniSelect,
+                EnvirStatuselect,
+                ActualActivityselect,
+                EnvirDescelect,
+                Natunalityselect
+              );
+
+              break;
+            case "7":
+              let GardenType_select2 = document.getElementById(
+                "gardenTypeForCameraSelect"
+              ).value;
+
+              SearchLayers.CameraSearch(
+                CurrentLayer,
+                MuniSelect,
+                GardenType_select2
+              );
+
+              break;
+            case "8":
+              let CofeeType = document.getElementById("CofeeTypeSelect").value;
+              let CofeeStatus =
+                document.getElementById("CofeeStatusselect").value;
+
+              SearchLayers.CofeeSearch(
+                CurrentLayer,
+                MuniSelect,
+                CofeeType,
+                CofeeStatus
+              );
+
+              break;
+            case "9":
+              SearchLayers.TopacooCofeeSearch(CurrentLayer, MuniSelect);
+              break;
+            case "10":
+              SearchLayers.TopacooShopesSearch(CurrentLayer, MuniSelect);
+              break;
+          }
+          homeWidget.go();
+        });
+        var Cancelbtn = document.getElementById("CancelSearchButton");
+        Cancelbtn.addEventListener("click", () => {
+          RemoveFilter();
+          homeWidget.go();
+        });
+        function RemoveFilter() {
+          map.layers.forEach((layer, index) => {
+            layer.definitionExpression = null;
+          });
+        }
+        let ResaultSelect = document.getElementById("ResaultSelect");
+        ResaultSelect.addEventListener("change", (e) => {
+          let LayerSelectVal = document.getElementById("LayerSelect").value;
+          SearchLayers.GoTo(view, map, LayerSelectVal, ResaultSelect.value);
+        });
+        opentablelnk.addEventListener("click", () => {
+          document.getElementById("tableContainnerDiv").style.display = "block";
+          featureTable.layer = CurrentLayer;
+          document.getElementById("tableContainnerDiv").style.width =
+            screen.width - 400;
+          document.getElementById("tableDiv").style.width = screen.width - 405;
+        });
+      });
+
+      //#region Document ready business
+      function r(f) {
+        /in/.test(document.readyState) ? setTimeout("r(" + f + ")", 9) : f();
+      }
+      r(function () {
+        var lookups = [];
+        let sectionsSelect = document.getElementById("SectionSelect");
+
+        let url = sessionStorage.getItem("url");
+        if (url) url = url + "lookups/getLocationLookups";
+
+        const token = localStorage.getItem("token");
+
+        //#region Load lookups
+        const myHeaders = new Headers();
+        myHeaders.append("Accept", "text/plain");
+        myHeaders.append("Authorization", "bearer " + token);
+
+        const requestOptions = {
+          method: "GET",
+          headers: myHeaders,
+          redirect: "follow",
+        };
+        fetch(url, requestOptions)
+          .then((response) => response.text())
+          .then((result) => {
+            lookups = JSON.parse(result)?.data;
+
+            drawCalciteSelectOptions(sectionsSelect, lookups.locationSections);
+          })
+          .catch((error) => console.error(error));
+
+        //#endregion
+
+        //#region Bind events and functionalities
+
+        function drawCalciteSelectOptions(parent, data) {
+          //add default option
+          var option = document.createElement("option");
+          option.value = "";
+          option.label = "إختار";
+          option.text = "إختار";
+          parent.appendChild(option);
+
+          //add data options
+          for (var i = 0; i < data.length; i++) {
+            var option = document.createElement("option");
+            option.value = data[i].id;
+            option.label = data[i].name;
+            option.text = data[i].name;
+            parent.appendChild(option);
+          }
+        }
+
+        function clearCalciteSelectOptions(parent) {
+          parent.innerHTML = "";
+        }
+
+        //#endregion
+        var CloseTablebtn = document.getElementById("CloseTablebtn");
+        CloseTablebtn.addEventListener("click", () => {
+          document.getElementById("tableContainnerDiv").style.display = "none";
+        });
+        var opentablelnk = document.getElementById("opentablelnk");
+      });
+      //#endregion
+
+      function showtable() {}
+    </script>
+  </head>
+
+  <body>
+    <calcite-loader></calcite-loader>
+    <calcite-shell content-behind hidden>
+      <calcite-card id="SearchCard" style="width: 250px; height: 650px">
+        <span slot="heading">البحث</span>
+        <span slot="description">البحث المتقدم عن البيانات</span>
+
+        <calcite-panel>
+          <calcite-label>
+            طبقة البيانات
+            <select id="LayerSelect" class="select">
+              <option value="">إختار</option>
+              <option value="0">الابار</option>
+              <!-- <option value="1">ساحات المساجد</option> -->
+              <!-- <option value="2">الحدائق</option> -->
+              <option value="3">مشاريع تنفيذ الحدائق</option>
+              <!-- <option value="4">مواقع مقار الجهات الحكومية</option> -->
+              <!-- <option value="5">الخدمات البيئية</option> -->
+              <!-- <option value="6">مشاريع تنفيذ الحدائق مسطحات</option> -->
+              <option value="7">الكاميرات</option>
+              <!-- <option value="8">المقاهي</option>
+              <option value="9">مقاهي التبغ</option>
+              <option value="10">محلات التبغ</option> -->
+            </select>
+          </calcite-label>
+
+          <calcite-label>
+            البلدية
+            <calcite-select id="MuniSelect">
+              <calcite-option value="">إختار</calcite-option>
+              <calcite-option value="العليا">العليا</calcite-option>
+              <calcite-option value="الروضة">الروضة</calcite-option>
+              <calcite-option value="الملز">الملز</calcite-option>
+              <calcite-option value="شمال الرياض"> شمال الرياض</calcite-option>
+              <calcite-option value="المعذر">المعذر</calcite-option>
+              <calcite-option value="النسيم">النسيم</calcite-option>
+              <calcite-option value="العريجاء">العريجاء</calcite-option>
+            </calcite-select>
+          </calcite-label>
+          <calcite-panel id="wallspanel" style="display: none">
+            <!--<calcite-label>
+                    نوع البئر
+                    <calcite-select id="StatusSelect">
+                        <calcite-option value="">إختار</calcite-option>
+                        <calcite-option value="1">قائم</calcite-option>
+                        <calcite-option value="2">فضاء</calcite-option>
+
+                    </calcite-select>
+
+                </calcite-label>-->
+          </calcite-panel>
+          <calcite-panel id="mosquespanel" style="display: none">
+            <calcite-label>
+              الوضع الراهن
+              <select id="mosques_Status_select">
+                <option value="">إختار</option>
+                <option value="دراسة وضع راهن">دراسة وضع راهن</option>
+                <option value="تم التصميم">تم التصميم</option>
+                <option value="تم التصميم (مواقع التاهيل)">
+                  تم التصميم (مواقع التاهيل)
+                </option>
+                <option value="تحت التنفيذ">تحت التنفيذ</option>
+              </select>
+            </calcite-label>
+          </calcite-panel>
+          <calcite-panel id="gardenspanel" style="display: none">
+            <calcite-label>
+              الانواع
+              <select id="gardenTypeSelect" class="select">
+                <option value="">إختار</option>
+                <option value="2">حديقة</option>
+                <option value="4">ملعب</option>
+                <option value="3">ساحة</option>
+                <option value="1">برحة</option>
+                <option value="6">ميدان</option>
+                <option value="5">منتزه</option>
+                <option value="7">واحة</option>
+              </select>
+            </calcite-label>
+          </calcite-panel>
+          <calcite-panel id="exutiveprojectspanel" style="display: none">
+          </calcite-panel>
+
+          <calcite-panel id="govpanel" style="display: none"> </calcite-panel>
+          <calcite-panel id="Envirpanel" style="display: none">
+            <calcite-label>
+              الحالة
+              <select id="EnvirStatuselect" class="select">
+                <option value="">إختار</option>
+                <option value="تعمل">تعمل</option>
+                <option value="مؤقت">مغلق مؤقت</option>
+                <option value="مغلق ">مغلق</option>
+                <option value="مغلق نهائي">مغلق نهائي</option>
+              </select>
+            </calcite-label>
+            <calcite-label>
+              مطابقة النشاط الفعلي
+              <select id="ActualActivityselect" class="select">
+                <option value="">إختار</option>
+                <option value="مطابق">مطابق</option>
+                <option value="غير مطابقة">غير مطابقة</option>
+              </select>
+            </calcite-label>
+            <calcite-label>
+              النشاط الرئيسي
+              <select id="EnvirDescelect" class="select">
+                <option value="">إختار</option>
+                <option
+                  value="ورشة اصلاح وصيانة المركبات والمعدات
+"
+                >
+                  ورشة اصلاح وصيانة المركبات والمعدات
+                </option>
+                <option value="مستودعات">مستودعات</option>
+                <option value="هندسية ومعدنية">هندسية ومعدنية</option>
+                <option value="خشبية">خشبية</option>
+                <option value="كيميائية">كيميائية</option>
+                <option value="الغذائية">الغذائية</option>
+                <option value="ورق وطباعة">ورق وطباعة</option>
+                <option value="غزل ونسيج وملابس">غزل ونسيج وملابس</option>
+                <option value="كيميائية">كيميائية</option>
+
+                <option value=" مواد البناء">مواد البناء</option>
+                <option value="اخرى">اخرى</option>
+              </select>
+            </calcite-label>
+            <calcite-label>
+              جنسية المالك
+              <select id="Natunalityselect" class="select">
+                <option value="">إختار</option>
+                <option value="السعوديه">السعوديه</option>
+                <option value="باكستان">باكستان</option>
+                <option value="سوريا">سوريا</option>
+                <option value="اليمن">اليمن</option>
+                <option value="بنغلاديش">بنغلاديش</option>
+                <option value="لبنان">لبنان</option>
+                <option value="فلسطين">فلسطين</option>
+                <option value="الامارات">الامارات</option>
+                <option value="البحرين">البحرين</option>
+                <option value="السودان">السودان</option>
+              </select>
+            </calcite-label>
+          </calcite-panel>
+          <calcite-panel id="CameraPanel" style="display: none">
+            <calcite-label>
+              نوع الموقع
+              <select id="gardenTypeForCameraSelect" class="select">
+                <option value="">إختار</option>
+                <option value="حديقة">حديقة</option>
+                <option value="ساحة">ساحة</option>
+                <option value="برحة">برحة</option>
+                <option value="منتزه">منتزه</option>
+                <option value="ممر">ممر</option>
+              </select>
+            </calcite-label>
+          </calcite-panel>
+          <calcite-panel id="CofeePanel" style="display: none">
+            <calcite-label>
+              التصنيف
+              <select id="CofeeTypeSelect" class="select">
+                <option value="">إختار</option>
+                <option value="محلات تقديم المشروبات الكوفي شوب">
+                  محلات تقديم المشروبات الكوفي شوب
+                </option>
+                <option value="المطاعم مع الخدمة">المطاعم مع الخدمة</option>
+              </select>
+            </calcite-label>
+            <calcite-label>
+              الحالة التصريح
+              <select id="CofeeStatusselect" class="select">
+                <option value="">إختار</option>
+                <option value="ساري">ساري</option>
+                <option value="منتهي">منتهي</option>
+              </select>
+            </calcite-label>
+          </calcite-panel>
+          <div>
+            <calcite-button
+              icon-start="search"
+              id="SearchButton"
+              class="SearchButtons"
+            >
+              بحث
+            </calcite-button>
+
+            <calcite-button
+              icon-start="reset"
+              id="CancelSearchButton"
+              class="SearchButtons"
+            >
+              الغاء
+            </calcite-button>
+          </div>
+
+          <calcite-label>
+            نتيجة البحث
+            <select id="ResaultSelect" class="select"></select>
+            <button type="button" class="btn btn-default btn-sm">
+              <span class="glyphicon glyphicon-th"></span>
+            </button>
+            <p id="ResultTxt"></p>
+            <a href="javascript:showtable()" id="opentablelnk"
+              >لاظهار البيانات التفصيلية اضغط هنا</a
+            >
+          </calcite-label>
+        </calcite-panel>
+      </calcite-card>
+      <calcite-shell-panel slot="panel-start" display-mode="float">
+        <calcite-action-bar slot="action-bar">
+          <calcite-action
+            data-action-id="layers"
+            icon="layers"
+            text="الطبقات"
+          ></calcite-action>
+          <calcite-action
+            data-action-id="basemaps"
+            icon="basemap"
+            text="خرائط الاساس"
+          ></calcite-action>
+          <calcite-action
+            data-action-id="legend"
+            icon="legend"
+            text="مفتاح الخريطه"
+          ></calcite-action>
+          <calcite-action
+            data-action-id="bookmarks"
+            icon="bookmark"
+            text=""
+          ></calcite-action>
+          <calcite-action
+            data-action-id="print"
+            icon="print"
+            text="طباعة"
+          ></calcite-action>
+          <calcite-action
+            data-action-id="information"
+            icon="information"
+            text="معلومات"
+          ></calcite-action>
+        </calcite-action-bar>
+
+        <!-- Map-specific panels (each one provides a div for a ArcGIS Maps SDK for JavaScript widget) -->
+        <calcite-panel
+          heading="الطبقات"
+          height-scale="l"
+          data-panel-id="layers"
+          hidden
+        >
+          <div id="layers-container"></div>
+        </calcite-panel>
+        <calcite-panel
+          heading="خرائط الاساس"
+          height-scale="l"
+          data-panel-id="basemaps"
+          hidden
+        >
+          <div id="basemaps-container"></div>
+        </calcite-panel>
+        <calcite-panel
+          heading="مفتاح الخريطة"
+          height-scale="l"
+          data-panel-id="legend"
+          hidden
+        >
+          <div id="legend-container"></div>
+        </calcite-panel>
+        <calcite-panel
+          heading="Bookmarks"
+          height-scale="l"
+          data-panel-id="bookmarks"
+          hidden
+        >
+          <div id="bookmarks-container"></div>
+        </calcite-panel>
+        <calcite-panel
+          heading="طباعة"
+          height-scale="l"
+          data-panel-id="print"
+          hidden
+        >
+          <div id="print-container"></div>
+        </calcite-panel>
+
+        <!-- Info panel (populates with info from the web map) -->
+        <calcite-panel heading="Details" data-panel-id="information" hidden>
+          <div id="info-content">
+            <img id="item-thumbnail" alt="webmap thumbnail" />
+            <div id="item-description">
+              <!-- Dynamically populated -->
+            </div>
+            <calcite-label layout="inline">
+              <b>Rating:</b>
+              <calcite-rating id="item-rating" read-only>
+                <!-- Dynamically populated -->
+              </calcite-rating>
+            </calcite-label>
+          </div>
+        </calcite-panel>
+      </calcite-shell-panel>
+
+      <div id="viewDiv"></div>
+      <div
+        id="tableContainnerDiv"
+        style="background-color: white; display: none; height: 350px"
+      >
+        <div class="row"><button id="CloseTablebtn">X</button></div>
+        <div class="row">
+          <div id="tableDiv" style="height: 300px"></div>
+        </div>
+      </div>
+      <div id="topbar">
+        <button
+          class="action-button esri-icon-measure-area"
+          id="areaButton"
+          type="button"
+          title="Measure area"
+        ></button>
+        <button
+          class="action-button esri-icon-measure-line"
+          id="distanceButton"
+          type="button"
+          title="Measure distance between two or more points"
+        ></button>
+      </div>
+    </calcite-shell>
+  </body>
+</html>
